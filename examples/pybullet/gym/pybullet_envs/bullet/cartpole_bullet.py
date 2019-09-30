@@ -25,25 +25,16 @@ logger = logging.getLogger(__name__)
 class CartPoleBulletEnv(gym.Env):
   metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second': 50}
 
-  def __init__(self, renders=True):
+  def __init__(self, zeta, renders=False):
     # start the bullet physics server
     self._renders = renders
+    self._zeta = zeta
     if (renders):
       p.connect(p.GUI)
     else:
       p.connect(p.DIRECT)
-    self.theta_threshold_radians = 12 * 2 * math.pi / 360
-    self.x_threshold = 0.4  #2.4
-    high = np.array([
-        self.x_threshold * 2,
-        np.finfo(np.float32).max, self.theta_threshold_radians * 2,
-        np.finfo(np.float32).max
-    ])
 
     self.force_mag = 10
-
-    self.action_space = spaces.Discrete(2)
-    self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
     self.seed()
     #    self.reset()
@@ -58,7 +49,7 @@ class CartPoleBulletEnv(gym.Env):
     return [seed]
 
   def step(self, action):
-    force = self.force_mag if action == 1 else -self.force_mag
+    force = self.force_mag if action[0] == 1 else -self.force_mag
 
     p.setJointMotorControl2(self.cartpole, 0, p.TORQUE_CONTROL, force=force)
     p.stepSimulation()
@@ -66,33 +57,40 @@ class CartPoleBulletEnv(gym.Env):
     self.state = p.getJointState(self.cartpole, 1)[0:2] + p.getJointState(self.cartpole, 0)[0:2]
     theta, theta_dot, x, x_dot = self.state
 
-    done =  x < -self.x_threshold \
-                or x > self.x_threshold \
-                or theta < -self.theta_threshold_radians \
-                or theta > self.theta_threshold_radians
-    done = bool(done)
+    # done =  x < -self.x_threshold \
+    #             or x > self.x_threshold \
+    #             or theta < -self.theta_threshold_radians \
+    #             or theta > self.theta_threshold_radians
+    # done = bool(done)
+    done = False
     reward = 1.0
-    #print("state=",self.state)
+    # print("state=",self.state)
     return np.array(self.state), reward, done, {}
 
-  def reset(self):
+  def reset(self, state=None):
     #    print("-----------reset simulation---------------")
     p.resetSimulation()
     self.cartpole = p.loadURDF(os.path.join(pybullet_data.getDataPath(), "cartpole.urdf"),
                                [0, 0, 0])
+    cart_mass = self._zeta[0]
+    # pole_mass = self._zeta[1]
     p.changeDynamics(self.cartpole, -1, linearDamping=0, angularDamping=0)
-    p.changeDynamics(self.cartpole, 0, linearDamping=0, angularDamping=0)
+    p.changeDynamics(self.cartpole, 0, linearDamping=0, angularDamping=0, mass=cart_mass)
     p.changeDynamics(self.cartpole, 1, linearDamping=0, angularDamping=0)
     self.timeStep = 0.02
     p.setJointMotorControl2(self.cartpole, 1, p.VELOCITY_CONTROL, force=0)
     p.setJointMotorControl2(self.cartpole, 0, p.VELOCITY_CONTROL, force=0)
     p.setGravity(0, 0, -9.8)
     p.setTimeStep(self.timeStep)
-    p.setRealTimeSimulation(0)
+    p.setRealTimeSimulation(False)
 
-    randstate = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
-    p.resetJointState(self.cartpole, 1, randstate[0], randstate[1])
-    p.resetJointState(self.cartpole, 0, randstate[2], randstate[3])
+    # randstate = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
+    # p.resetJointState(self.cartpole, 1, randstate[0], randstate[1])
+    # p.resetJointState(self.cartpole, 0, randstate[2], randstate[3])
+
+    if state is not None:
+      p.resetJointState(self.cartpole, 1, state[0], state[1])
+      p.resetJointState(self.cartpole, 0, state[2], state[3])
     #print("randstate=",randstate)
     self.state = p.getJointState(self.cartpole, 1)[0:2] + p.getJointState(self.cartpole, 0)[0:2]
     #print("self.state=", self.state)
