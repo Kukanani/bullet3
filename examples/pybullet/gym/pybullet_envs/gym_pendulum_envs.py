@@ -56,10 +56,12 @@ class InvertedPendulumSwingupBulletEnv(InvertedPendulumBulletEnv):
 
 class InvertedDoublePendulumBulletEnv(MJCFBaseBulletEnv):
 
-  def __init__(self):
+  def __init__(self, zeta):
+    self.p = pybullet.connect(pybullet.DIRECT)
     self.robot = InvertedDoublePendulum()
     MJCFBaseBulletEnv.__init__(self, self.robot)
     self.stateId = -1
+    self._zeta = zeta
 
   def create_single_player_scene(self, bullet_client):
     return SingleRobotEmptyScene(bullet_client, gravity=9.8, timestep=0.0165, frame_skip=1)
@@ -70,6 +72,10 @@ class InvertedDoublePendulumBulletEnv(MJCFBaseBulletEnv):
     r = MJCFBaseBulletEnv.reset(self)
     if (self.stateId < 0):
       self.stateId = self._p.saveState()
+
+    self.robot.reset(self.p)
+    self.robot.parts["pole"]._p.changeDynamics(self.robot.parts["pole"].bodyIndex, self.robot.parts["pole"].bodyPartIndex, linearDamping=0, mass=self._zeta[0], angularDamping=self._zeta[1])
+    self.robot.parts["pole2"]._p.changeDynamics(self.robot.parts["pole2"].bodyIndex, self.robot.parts["pole2"].bodyPartIndex, linearDamping=0, mass=self._zeta[2], angularDamping=self._zeta[3])
     return r
 
   def step(self, a):

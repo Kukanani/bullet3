@@ -15,12 +15,13 @@ class XmlBasedRobot:
 
   self_collision = True
 
-  def __init__(self, robot_name, action_dim, obs_dim, self_collision):
+  def __init__(self, robot_name, action_dim, obs_dim, self_collision, zeta=None):
     self.parts = None
     self.objects = []
     self.jdict = None
     self.ordered_joints = None
     self.robot_body = None
+    self.zeta = zeta
 
     high = np.ones([action_dim])
     self.action_space = gym.spaces.Box(-high, high)
@@ -114,8 +115,8 @@ class MJCFBasedRobot(XmlBasedRobot):
 	Base class for mujoco .xml based agents.
 	"""
 
-  def __init__(self, model_xml, robot_name, action_dim, obs_dim, self_collision=True):
-    XmlBasedRobot.__init__(self, robot_name, action_dim, obs_dim, self_collision)
+  def __init__(self, model_xml, robot_name, action_dim, obs_dim, self_collision=True, zeta=None):
+    XmlBasedRobot.__init__(self, robot_name, action_dim, obs_dim, self_collision, zeta=zeta)
     self.model_xml = model_xml
     self.doneLoading = 0
 

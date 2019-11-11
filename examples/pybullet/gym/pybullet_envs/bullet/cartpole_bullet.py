@@ -25,10 +25,11 @@ logger = logging.getLogger(__name__)
 class CartPoleBulletEnv(gym.Env):
   metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second': 50}
 
-  def __init__(self, zeta, renders=False):
+  def __init__(self, zeta, renders=False, us=False):
     # start the bullet physics server
     self._renders = renders
     self._zeta = zeta
+    self._us = us
     if (renders):
       p.connect(p.GUI)
     else:
@@ -73,10 +74,23 @@ class CartPoleBulletEnv(gym.Env):
     self.cartpole = p.loadURDF(os.path.join(pybullet_data.getDataPath(), "cartpole.urdf"),
                                [0, 0, 0])
     cart_mass = self._zeta[0]
-    # pole_mass = self._zeta[1]
-    p.changeDynamics(self.cartpole, -1, linearDamping=0, angularDamping=0)
-    p.changeDynamics(self.cartpole, 0, linearDamping=0, angularDamping=0, mass=cart_mass)
-    p.changeDynamics(self.cartpole, 1, linearDamping=0, angularDamping=0)
+
+    angular_damping = 0
+
+    if len(self._zeta) > 1:
+      pole_mass = self._zeta[1]
+      if self._us:
+        self.force_mag = 10 * self._zeta[2]
+      else:
+        angular_damping = self._zeta[2] / 10
+
+    if len(self._zeta) > 1:
+      p.changeDynamics(self.cartpole, 1, linearDamping=0, angularDamping=angular_damping, mass=pole_mass)
+    else:
+      p.changeDynamics(self.cartpole, 1, linearDamping=0, angularDamping=angular_damping)
+
+    p.changeDynamics(self.cartpole, -1, linearDamping=0, angularDamping=angular_damping)
+    p.changeDynamics(self.cartpole, 0, linearDamping=0, angularDamping=angular_damping, mass=cart_mass)
     self.timeStep = 0.02
     p.setJointMotorControl2(self.cartpole, 1, p.VELOCITY_CONTROL, force=0)
     p.setJointMotorControl2(self.cartpole, 0, p.VELOCITY_CONTROL, force=0)
@@ -91,9 +105,7 @@ class CartPoleBulletEnv(gym.Env):
     if state is not None:
       p.resetJointState(self.cartpole, 1, state[0], state[1])
       p.resetJointState(self.cartpole, 0, state[2], state[3])
-    #print("randstate=",randstate)
     self.state = p.getJointState(self.cartpole, 1)[0:2] + p.getJointState(self.cartpole, 0)[0:2]
-    #print("self.state=", self.state)
     return np.array(self.state)
 
   def render(self, mode='human', close=False):
